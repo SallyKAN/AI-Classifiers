@@ -4,28 +4,26 @@ import numpy as np
 
 
 class NB:
-    def getData(self, filename):
+    def getTrainData(self, filename):
         with open(filename, 'rb') as f:
             reader = unicodecsv.reader(f)
             i_data = list(reader)
             for i in i_data:
                 if i[-1] == 'yes':
-                        i[-1] = 1
+                    i[-1] = 1
                 else:
-                        i[-1] = 0
+                    i[-1] = 0
             for i in range(len(i_data)):
                 i_data[i] = [float(x) for x in i_data[i]]
             return i_data
 
-    def processNBData(self,daatset):
-        for i in daatset:
-            if i[-1] == 'yes':
-                i[-1] = 1
-            else:
-                i[-1] = 0
-        for i in range(len(daatset)):
-            daatset[i] = [float(x) for x in daatset[i]]
-        return daatset
+    def getTestData(self, filename):
+        with open(filename, 'rb') as f:
+            reader = unicodecsv.reader(f)
+            i_data = list(reader)
+            for i in range(len(i_data)):
+                i_data[i] = [float(x) for x in i_data[i]]
+            return i_data
 
     def splitAttributeLabels(self,dataset):
         label_data = []
@@ -34,45 +32,8 @@ class NB:
             del i[-1]
         return dataset, label_data
 
-    def getFoldsData(self,filename):
-        with open(filename,'rb') as f:
-            reader = unicodecsv.reader(f)
-            i_data = list(reader)
-            dataset = []
-            fold1 = i_data[1:78]
-            fold2 = i_data[80:157]
-            fold3 = i_data[159:236]
-            fold4 = i_data[238:315]
-            fold5 = i_data[317:394]
-            fold6 = i_data[396:473]
-            fold7 = i_data[475:552]
-            fold8 = i_data[554:631]
-            fold9 = i_data[633:709]
-            fold10 = i_data[711:787]
-            dataset.append(fold1)
-            dataset.append(fold2)
-            dataset.append(fold3)
-            dataset.append(fold4)
-            dataset.append(fold5)
-            dataset.append(fold6)
-            dataset.append(fold7)
-            dataset.append(fold8)
-            dataset.append(fold9)
-            dataset.append(fold10)
-            # for i in dataset:
-            #     if i[8] == 'yes':
-            #         i[8] = 1
-            #     else:
-            #         i[8] = 0
-            # for j in range(len(dataset)):
-            #     for i in dataset[j]:
-            #         dataset[j][i] = [float(x) for x in dataset[j][i]]
-            return dataset
-
     def mean(self, numbers):
-        numbers
         return sum(numbers) / float(len(numbers))
-
 
     def stdev(self, numbers):
         avg = self.mean(numbers)
@@ -102,10 +63,9 @@ class NB:
 
     def calculateProbability(self, x, mean, stdev):
         exponent = math.exp(-(math.pow(x - mean, 2) / (2 * math.pow(stdev, 2))))
-        # np.random.normal()
         return (1 / (math.sqrt(2 * math.pi) * stdev)) * exponent
 
-    def calculateClassProbabilities(self,summaries, inputVector,prior):
+    def calculateClassProbabilities(self,summaries, inputVector, prior):
         probabilities = {}
         for classValue, classSummaries in summaries.items():
             probabilities[classValue] = 1
@@ -153,19 +113,41 @@ class NB:
         accurancy = float(correct) / len(results) * 100
         return accurancy
 
+    def get_stratification_fold(self, dataset):
+        seperated = self.separateByClass(dataset)
+        # yes_folds_sizes = (len(seperated[1]) // 10) * np.ones(10, dtype=np.int)
+        # yes_folds_sizes[:len(seperated[1]) % 10] += 1
+        # no_folds_sizes = (len(seperated[0]) // 10) * np.ones(10, dtype=np.int)
+        # no_folds_sizes[:len(seperated[0]) % 10] += 1
+        yes_folds = []
+        no_folds = list(list(a) for a in zip(*[iter(seperated[0])]*50))
+        yes_folds.append(seperated[1][:27])
+        yes_folds.append(seperated[1][27:54])
+        yes_folds.append(seperated[1][54:81])
+        yes_folds.append(seperated[1][81:108])
+        yes_folds.append(seperated[1][108:135])
+        yes_folds.append(seperated[1][135:162])
+        yes_folds.append(seperated[1][162:189])
+        yes_folds.append(seperated[1][189:216])
+        yes_folds.append(seperated[1][216:242])
+        yes_folds.append(seperated[1][242:268])
+        folds = []
+        for i in range(10):
+            folds.append(yes_folds[i] + no_folds[i])
+        return folds
+
     def cross_validation(self,filename):
         accurancies = []
         for i in range(10):
-            dataset = self.getFoldsData(filename)
+            traindata = self.getTrainData(filename)
+            dataset = self.get_stratification_fold(traindata)
             test_dataset = dataset[i]
             dataset.remove(test_dataset)
             train_dataset = []
             for folds in dataset:
                 for instances in folds:
                     train_dataset.append(instances)
-            train_data = self.processNBData(train_dataset)
-            test_data = self.processNBData(test_dataset)
-            results = self.getPredictions(train_data,test_data)
+            results = self.getPredictions(test_dataset,train_dataset)
             accurancies.append(self.accurancy(results))
         average_accurancy = sum(accurancies) / float(len(accurancies))
         return average_accurancy
